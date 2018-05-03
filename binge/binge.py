@@ -1,0 +1,228 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# 
+# Authors Dates Versions:
+# G. Schworer @ 2018/03/22 - init
+# 
+# 
+
+
+import multiprocessing
+from collections import Iterable
+import sys
+
+# cross-compatible python2-3 string checking
+try:
+    # PY2
+    _STRINGLIKE = (basestring,unicode,str,bytes)
+except:
+    # PY3
+    _STRINGLIKE = (str,bytes)
+
+
+__all__ = ['B']
+
+
+def _wrap_fct(params):
+    ncores = params.pop(3)
+    pinfo = params.pop(2)
+    largs = params.pop(1)
+    fct = params.pop(0)
+    if pinfo:
+        d = multiprocessing.Process()._identity
+        params += [('_pinfo', [d[0]%ncores, d[1]])]
+    return fct(*params[:largs], **dict(params[largs:]))
+
+
+class B(object):
+    _blue = '\033[34m'
+    _normal = '\033[39m\033[21m\033[22m'
+
+    def __init__(self, fct, cores=None, n=None, typout=None,
+                 typin=None, fwd_pinfo=False, verbose=False):
+        """
+        Call M(f)(arg1, arg2) instead of f(arg1, arg2) to benefit
+        from multi-processing
+
+        Args:
+          * fct (callable): the function to parallelize
+          * cores (int or None): the number of cores on which to
+            parallelize. None means use all CPUs
+          * n (int or None): the size of the input on which to
+            parallelize. None means infer from inputs
+          * typout (str or None): when not None, extra post-
+            transformations will be carried on the input/output.
+            See below
+          * typin (str or None or list of str): when not None, instructs
+            how to automatically infer the size of the dimension to
+            distribute on: n. Ignored is n is given.
+            See below
+          * fwd_pinfo (bool): if True, passes the process information
+            (process_index, process_iteration_index) to the worker
+            fct under parameter name '_pinfo'
+
+        Typout:
+          * df: the output will be contatenated into a single pandas df
+          * nd1: the output will be a stack of the first dimension of
+            the threads outputs.
+            e.g. thread1: shape=(2,3), thread2: shape=(7,3)
+                output will be of shape (9,3)
+          * nda: the output will be a stack in a new first dimension of
+            the threads outputs, which need to have all the same shape.
+            e.g. thread1: shape=(7,3), thread2: shape=(7,3)
+                output will be of shape=(2,7,3)
+          
+        Typin:
+          * nda: any input of type numpy array will be distributed along
+            its first dimension
+          * str: any input of str- or bytes-like types will be
+            distributed as if a list of single characters
+
+        Example:
+          > def f(x, y=1., p=2.): return (x*y)**p
+          Calling
+          > M(f)([1,2], p=3)
+          will call simultaneously on 2 different cores:
+          > f(1, p=3)
+          > f(2, p=3)
+          and return:
+          > [1.0, 8.0]
+        """
+        if not callable(fct):
+            raise Exception("fct must be callable")
+        self._fct = fct
+        self._cores = multiprocessing.cpu_count() if cores is None\
+            else int(cores)
+        self._n = int(n) if n is not None else None
+        self._verbose = bool(verbose)
+        ndarray = None
+        if typin is None:
+            self.typin = None
+        elif isinstance(typin, str):
+            self.typin = set([typin.lower()])
+        elif isinstance(typin, (tuple, list)):
+            self.typin = set([str(typ).lower() for typ in typin])
+        else:
+            raise Exception("Typin '{}' not understood".format(typin))
+        self._split_str = 'str' in self.typin
+        self._split_ndarray = 'nda' in self.typin
+        if self._split_ndarray:
+            # requested numpy input to be split, so allow fail
+            # if cant import
+            from numpy import ndarray
+        else:
+            # did NOT requested numpy input to be split, so protect fail
+            # if cant import
+            try:
+                from numpy import ndarray
+            except ImportError:
+                pass
+        self.typout = str(typout) if typout is not None else None
+        self._fwd_pinfo = bool(fwd_pinfo)
+
+    def _info(self):
+        return "Multi-processing wrapper for {}{}{} over {} processes".\
+            format(self._blue,
+                   getattr(self._fct, 'func_name', self._fct.__name__),
+                   self._normal,
+                   self._cores)
+
+    def __repr__(self):
+        return self._info()
+
+    def __str__(self):
+        return self._info()
+
+    def _inspect_it(self, item):
+        if ndarray is None:
+            # numpy could not be loaded, so at this point there
+            # should not be any numpy array as input, so we
+            # inspect everything
+            pass
+            # not a numpy array input
+        elif not isinstance(item, ndarray):
+            # numpy was loaded but we don't have a ndarray, so we
+            # inspect this one
+            pass
+        else:
+            # we have a numpy array so just do as per instruction
+            return self._split_ndarray:
+        if isinstance(item, _STRINGLIKE):
+            # and we have a string input so we go as per
+            # instruction
+            return self._split_str
+        return isinstance(item, Iterable)
+
+    def __call__(self, *args, **kwargs):
+        # init number of multi-iteration
+        if self._n is None:
+            self._n = 1
+            # check all input arguments
+            for idx, item in list(enumerate(args)) + list(kwargs.items()):
+                if self._inspect_it(item):
+                    # keep the longest dimension to 
+                    self._n = max(self._n, len(item))
+                    if self._verbose:
+                        print("Input index {} iterable with size"\
+                              " {}, iterations is {}"\
+                                .format(idx, len(item), self._n))
+                elif self._verbose:
+                    print("Input index '{}' skipped".format(idx))
+        if self._verbose:
+            print("Will do {:d} iterations\nWill use {:d} cores"\
+                .format(self._n, self._cores))
+        # go through *args input arguments and make lists of it if need be
+        args = list(args)
+        for idx, item in enumerate(args):
+            if self._inspect_it(item):
+                # this input is inspect-compatible
+                if len(item) != self._n:
+                    # but its length is not the one we want to iterate on
+                    # wrap it into a fake 1-item list
+                    args[idx] = [item]
+            else:
+                # item not inspect-compatible
+                # wrap it into a fake 1-item list
+                args[idx] = [item]
+        # go through **kwargs input arguments and make lists of it if need be
+        for idx, item in kwargs.items():
+            if self._inspect_it(item):
+                # this input is inspect-compatible
+                if len(item) != self._n:
+                    # but its length is not the one we want to iterate on
+                    # wrap it into a fake 1-item list
+                    kwargs[idx] = [item]
+            else:
+                # item not inspect-compatible
+                # wrap it into a fake 1-item list
+                kwargs[idx] = [item]
+        # make the single parameter list for the pool
+        params =\
+            ([self._fct, len(args), self._fwd_pinfo, self._cores]
+                + [item[min(j, len(item)-1)] for item in args]
+                + [(key, item[min(j, len(item)-1)])
+                    for key, item in kwargs.items()]
+            for j in range(self._n))
+        pool = multiprocessing.Pool(processes = self._cores)
+        res = pool.map(_wrap_fct, params)
+        if self.typout is None:
+            return res
+        try:
+            if self.typout == 'df':
+                from pandas import DataFrame
+                from numpy import vstack
+                return DataFrame(vstack(res), columns=res[0].columns)
+            elif self.typout == 'nd1':
+                from numpy import concatenate
+                return concatenate(res, axis=0)
+            elif self.typout == 'nda':
+                from numpy import concatenate
+                return concatenate(([item] for item in res), axis=0)
+            else:
+                raise Exception("Unkonwn typout '{}'".format(self.typout))
+        except:
+            print("Some error happened trying to post-process the output "\
+                  "according to typout '{}':\n{}\n"\
+                  "Returned the raw output instead".format(
+                    self.typout, sys.exc_info()[0]))
+        return res
