@@ -36,7 +36,7 @@ setup(
     packages = ["binge"],
     url = "https://github.com/ceyzeriat/binge/",
     license = "GNU General Public License v3 or later (GPLv3+)",
-    description = "Real-time plotting and logging while console controlling",
+    description = "Lazy multiprocess your callables in three extra characters",
     long_description = desc,
     package_data = {"": ["LICENSE", "AUTHORS.rst", "HISTORY.rst", "README.rst"]},
     include_package_data = True,
