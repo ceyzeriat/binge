@@ -1,15 +1,34 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
-# Authors Dates Versions:
-# G. Schworer @ 2018/03/22 - init
-# 
-# 
+
+###############################################################################
+#  
+#  BINGE - Lazy multiprocess your callables in three extra characters
+#  Copyright (C) 2018  Guillaume Schworer
+#  
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#  
+#  For any information, bug report, idea, donation, hug, beer, please contact
+#    guillaume.schworer@gmail.com
+#
+###############################################################################
 
 
 import multiprocessing
 from collections import Iterable
 import sys
+
 
 # cross-compatible python2-3 string checking
 try:
@@ -104,8 +123,9 @@ class B(object):
             self.typin = set([str(typ).lower() for typ in typin])
         else:
             raise Exception("Typin '{}' not understood".format(typin))
-        self._split_str = 'str' in self.typin
-        self._split_ndarray = 'nda' in self.typin
+        self._split_str = None if self.typin is None else ('str' in self.typin)
+        self._split_ndarray = None if self.typin is None else\
+            ('nda' in self.typin)
         if self._split_ndarray:
             # requested numpy input to be split, so allow fail
             # if cant import
@@ -117,6 +137,7 @@ class B(object):
                 from numpy import ndarray
             except ImportError:
                 pass
+        self.ndarray = ndarray
         self.typout = str(typout) if typout is not None else None
         self._fwd_pinfo = bool(fwd_pinfo)
 
@@ -134,19 +155,19 @@ class B(object):
         return self._info()
 
     def _inspect_it(self, item):
-        if ndarray is None:
+        if self.ndarray is None:
             # numpy could not be loaded, so at this point there
             # should not be any numpy array as input, so we
             # inspect everything
             pass
             # not a numpy array input
-        elif not isinstance(item, ndarray):
+        elif not isinstance(item, self.ndarray):
             # numpy was loaded but we don't have a ndarray, so we
             # inspect this one
             pass
         else:
             # we have a numpy array so just do as per instruction
-            return self._split_ndarray:
+            return self._split_ndarray
         if isinstance(item, _STRINGLIKE):
             # and we have a string input so we go as per
             # instruction
@@ -160,7 +181,7 @@ class B(object):
             # check all input arguments
             for idx, item in list(enumerate(args)) + list(kwargs.items()):
                 if self._inspect_it(item):
-                    # keep the longest dimension to 
+                    # keep the longest dimension to infer n 
                     self._n = max(self._n, len(item))
                     if self._verbose:
                         print("Input index {} iterable with size"\
