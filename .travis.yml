@@ -8,6 +8,7 @@ env:
         - PYTHON_VERSION=2.7
         - PYTHON_VERSION=3.4
         - PYTHON_VERSION=3.5
+        - PYTHON_VERSION=3.6
 
 install:
     - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
@@ -22,13 +23,13 @@ install:
     - source activate test
     - pip install coveralls
 
-before_script: # configure a headless display to test plot generation
-    - "export DISPLAY=:99.0"
-    - "sh -e /etc/init.d/xvfb start"
-    - sleep 3 # give xvfb some time to start
+#before_script: # configure a headless display to test plot generation
+#    - "export DISPLAY=:99.0"
+#    - "sh -e /etc/init.d/xvfb start"
+#    - sleep 3 # give xvfb some time to start
 
 script:
-    - nosetests joystick --with-coverage --cover-package=joystick
+    - nosetests binge --with-coverage --cover-package=binge
 
 after_success:
     - coveralls
