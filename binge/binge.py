@@ -28,6 +28,7 @@
 import multiprocessing
 from collections import Iterable
 import sys
+import types
 
 
 # cross-compatible python2-3 string checking
@@ -48,14 +49,14 @@ def _wrap_fct(params):
     largs = params.pop(1)
     fct = params.pop(0)
     if pinfo:
-        d = multiprocessing.Process()._identity
+        d = multiprocessing.Process()._identity + (None,)
         params += [('_pinfo', [d[0]%ncores, d[1]])]
     return fct(*params[:largs], **dict(params[largs:]))
 
 
 class B(object):
-    _blue = '\033[34m'
-    _normal = '\033[39m\033[21m\033[22m'
+    _fontblue = '\033[34m'
+    _fontnormal = '\033[39m\033[21m\033[22m'
 
     def __init__(self, fct, cores=None, n=None, typout=None,
                  typin=None, fwd_pinfo=False, verbose=False):
@@ -96,6 +97,7 @@ class B(object):
             its first dimension
           * str: any input of str- or bytes-like types will be
             distributed as if a list of single characters
+          * gen: any input of genertors types will be distributed
 
         Example:
           > def f(x, y=1., p=2.): return (x*y)**p
@@ -110,10 +112,13 @@ class B(object):
         if not callable(fct):
             raise Exception("fct must be callable")
         self._fct = fct
-        self._cores = multiprocessing.cpu_count() if cores is None\
+        self.cores = multiprocessing.cpu_count() if cores is None\
             else int(cores)
+        # initial instruction
         self._n = int(n) if n is not None else None
-        self._verbose = bool(verbose)
+        # real one
+        self.n = self._n if self._n is not None else 1
+        self.verbose = bool(verbose)
         ndarray = None
         if typin is None:
             self.typin = None
@@ -123,9 +128,12 @@ class B(object):
             self.typin = set([str(typ).lower() for typ in typin])
         else:
             raise Exception("Typin '{}' not understood".format(typin))
-        self._split_str = None if self.typin is None else ('str' in self.typin)
-        self._split_ndarray = None if self.typin is None else\
+        self._split_str = False if self.typin is None else\
+            ('str' in self.typin)
+        self._split_ndarray = False if self.typin is None else\
             ('nda' in self.typin)
+        self._split_gen = False if self.typin is None else\
+            ('gen' in self.typin)
         if self._split_ndarray:
             # requested numpy input to be split, so allow fail
             # if cant import
@@ -143,10 +151,10 @@ class B(object):
 
     def _info(self):
         return "Multi-processing wrapper for {}{}{} over {} processes".\
-            format(self._blue,
+            format(self._fontblue,
                    getattr(self._fct, 'func_name', self._fct.__name__),
-                   self._normal,
-                   self._cores)
+                   self._fontnormal,
+                   self.cores)
 
     def __repr__(self):
         return self._info()
@@ -172,60 +180,78 @@ class B(object):
             # and we have a string input so we go as per
             # instruction
             return self._split_str
-        return isinstance(item, Iterable)
+        elif isinstance(item, types.GeneratorType):
+            # here is a generator.. to split or not to split?
+            # follow instruction
+            return self._split_gen
+        else:
+            return isinstance(item, Iterable)
 
     def __call__(self, *args, **kwargs):
         # init number of multi-iteration
+        # initial instruction was unknown
+        params = [list(args), kwargs]
         if self._n is None:
-            self._n = 1
+            self.n = 1
             # check all input arguments
-            for idx, item in list(enumerate(args)) + list(kwargs.items()):
-                if self._inspect_it(item):
-                    # keep the longest dimension to infer n 
-                    self._n = max(self._n, len(item))
-                    if self._verbose:
-                        print("Input index {} iterable with size"\
-                              " {}, iterations is {}"\
-                                .format(idx, len(item), self._n))
-                elif self._verbose:
-                    print("Input index '{}' skipped".format(idx))
-        if self._verbose:
+            for p, param in [(0, enumerate(params[0])),\
+                             (1, params[1].items())]:
+                for idx, item in param:
+                    if self._inspect_it(item):
+                        if isinstance(item, types.GeneratorType):
+                            # can't take len of generator, gotta force it
+                            # into a tuple
+                            item = tuple(item)
+                            params[p][idx] = item
+                        # keep the longest dimension to infer n 
+                        self.n = max(self.n, len(item))
+                        if self.verbose:
+                            print("Input index '{}' iterable with size"\
+                                  " {}, iterations is {}"\
+                                    .format(idx, len(item), self.n))
+                    elif self.verbose:
+                        print("Input index '{}' skipped".format(idx))
+        if self.verbose:
             print("Will do {:d} iterations\nWill use {:d} cores"\
-                .format(self._n, self._cores))
-        # go through *args input arguments and make lists of it if need be
-        args = list(args)
-        for idx, item in enumerate(args):
-            if self._inspect_it(item):
-                # this input is inspect-compatible
-                if len(item) != self._n:
-                    # but its length is not the one we want to iterate on
+                .format(self.n, self.cores))
+        # go through args and kwargs input arguments and make lists of it if
+        # need be
+        for p, param in enumerate(params):
+            for idx, item in enumerate(param):
+                if self._inspect_it(item):
+                    # this input is inspect-compatible
+                    if len(item) != self.n:
+                        # but its length is not the one we want to iterate on
+                        # wrap it into a fake 1-item list
+                        params[p][idx] = [item]
+                else:
+                    # item not inspect-compatible
                     # wrap it into a fake 1-item list
-                    args[idx] = [item]
-            else:
-                # item not inspect-compatible
-                # wrap it into a fake 1-item list
-                args[idx] = [item]
-        # go through **kwargs input arguments and make lists of it if need be
-        for idx, item in kwargs.items():
-            if self._inspect_it(item):
-                # this input is inspect-compatible
-                if len(item) != self._n:
-                    # but its length is not the one we want to iterate on
-                    # wrap it into a fake 1-item list
-                    kwargs[idx] = [item]
-            else:
-                # item not inspect-compatible
-                # wrap it into a fake 1-item list
-                kwargs[idx] = [item]
+                    if isinstance(item, types.GeneratorType):
+                        # can't pickle generators, so gotta force it into
+                        # tuple
+                        item = tuple(item)
+                    params[p][idx] = [item]
         # make the single parameter list for the pool
-        params =\
-            ([self._fct, len(args), self._fwd_pinfo, self._cores]
-                + [item[min(j, len(item)-1)] for item in args]
-                + [(key, item[min(j, len(item)-1)])
-                    for key, item in kwargs.items()]
-            for j in range(self._n))
-        pool = multiprocessing.Pool(processes = self._cores)
-        res = pool.map(_wrap_fct, params)
+        allparams = []
+        for j in range(self.n):
+            temp = [self._fct, len(params[0]), self._fwd_pinfo, self.cores]
+            for item in params[0]:
+                temp.append(item[min(j, len(item)-1)])
+            for key, item in params[1].items():
+                temp.append((key, item[min(j, len(item)-1)]))
+            allparams.append(temp)
+        del params, temp
+        #allparams =\
+        #    ([self._fct, len(params[0]), self._fwd_pinfo, self.cores]
+        #        + [item[min(j, len(item)-1)] for item in params[0]]
+        #        + [(key, item[min(j, len(item)-1)])
+        #            for key, item in params[1].items()]
+        #    for j in range(self.n))
+        pool = multiprocessing.Pool(processes=self.cores)
+        res = pool.map(_wrap_fct, allparams)
+        # back to initial instruction
+        self.n = self._n if self._n is not None else 1
         if self.typout is None:
             return res
         try:
