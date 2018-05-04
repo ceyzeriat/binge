@@ -54,7 +54,7 @@ The only entry point is the ``binge.B`` classe. You'll just use it like this:
 
 
 More usage details, see `example.py
-<https://github.com/ceyzeriat/binge/blob/master/example.py>`_)
+<https://github.com/ceyzeriat/binge/blob/master/example.py>`_
 
 
 Documentation
