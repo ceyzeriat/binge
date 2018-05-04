@@ -29,14 +29,28 @@ The only entry point is the ``binge.B`` classe. You'll just use it like this:
     import time
     from binge import B
 
-    def f(x):
+    def f(x, a=2):
         time.sleep(1)
-        return x*2
+        return x*a
 
-    # normal call, takes 4 seconds to run
+    # normal call
     [f(x) for x in range(4)]
-    # binged call, takes 1 second to run on 4 CPUs
+    > [0, 2, 4, 6]  # takes 4 seconds to run
+    
+    # binged call
     B(f)([x for x in range(4)])
+    > [0, 2, 4, 6]  # takes 1 second to run on 4 CPUs
+    
+    # and if you're very lazy, you could even do
+    B(f)(range(4))
+    
+    # and what about the ``a`` parameter? too easy
+    B(f)(range(4), 3)
+    > [0, 3, 6, 9]
+    
+    # and guess what also works?
+    B(f)(range(4), a=[1,2,3,6])
+    > [0, 2, 6, 18]
 
 
 More usage details, see `example.py
