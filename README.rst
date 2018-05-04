@@ -54,7 +54,7 @@ The only entry point is the ``binge.B`` classe. You'll just use it like this:
 
 
 More usage details, see `example.py
-<https://github.com/ceyzeriat/binge/blob/master/example.py>`_
+<https://github.com/ceyzeriat/binge/blob/master/binge/example.py>`_
 
 
 Documentation
@@ -82,5 +82,5 @@ License
 
 Copyright 2018 Guillaume Schworer
 
-patiencebar is free software made available under the GNU General
+binge is free software made available under the GNU General
 Public License v3 or later (GPLv3+) license (see ``LICENSE``).
