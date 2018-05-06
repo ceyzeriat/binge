@@ -1,5 +1,17 @@
-binge
-=====
+.. joystick
+
+.. image:: https://travis-ci.org/ceyzeriat/binge.svg?branch=master
+    :target: https://travis-ci.org/ceyzeriat/binge
+.. image:: https://coveralls.io/repos/github/ceyzeriat/binge/badge.svg
+    :target: https://coveralls.io/github/ceyzeriat/binge
+.. image:: http://img.shields.io/badge/license-GPLv3-blue.svg?style=flat
+    :target: https://github.com/ceyzeriat/binge/blob/master/LICENSE
+
+:Name: binge
+:Website: https://github.com/ceyzeriat/binge
+:Author: Guillaume Schworer
+:Version: 0.1
+
 
 Lazy multi-process your callables in three extra characters
 
