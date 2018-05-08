@@ -92,10 +92,10 @@ class B(object):
                 output will be of shape=(2,7,3)
           
         Typin:
-          * nda: any input of type numpy array will be distributed along
-            its first dimension
-          * str: any input of str- or bytes-like types will be
-            distributed as if a list of single characters
+          * nda: if passed, any input of type numpy array will be
+            distributed along its first dimension
+          * str: if passed, any input of str- or bytes-like types will
+            be distributed as if a list of single characters
 
         Example:
           > def f(x, y=1., p=2.): return (x*y)**p
@@ -123,8 +123,9 @@ class B(object):
             self.typin = set([str(typ).lower() for typ in typin])
         else:
             raise Exception("Typin '{}' not understood".format(typin))
-        self._split_str = None if self.typin is None else ('str' in self.typin)
-        self._split_ndarray = None if self.typin is None else\
+        self._split_str = False if self.typin is None else\
+            ('str' in self.typin)
+        self._split_ndarray = False if self.typin is None else\
             ('nda' in self.typin)
         if self._split_ndarray:
             # requested numpy input to be split, so allow fail
