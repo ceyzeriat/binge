@@ -27,7 +27,7 @@
 
 import numpy as np
 import time
-import pandas
+import pandas as pd
 
 
 from ..binge import B
@@ -72,14 +72,14 @@ def test_dum_create4():
     l = [1,2,3]
     b = 2
     res = B(_dummy2)(l, b=b)
-    assert l == [i+b for i in res]
+    assert [i+b for i in l] == res
 
 
 def test_dum_create5():
     l = [1,2,3]
     b = 2
     res = B(_dummy2)(a=l, b=b)
-    assert l == [i+b for i in res]
+    assert [i+b for i in l] == res
 
 
 def test_cores():

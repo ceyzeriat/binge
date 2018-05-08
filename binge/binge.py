@@ -194,7 +194,7 @@ class B(object):
         if self._n is None:
             self.n = 1
             # check all input arguments
-            for p, param in [(0, enumerate(params[0])),\
+            for p, param in [(0, enumerate(params[0])),
                              (1, params[1].items())]:
                 for idx, item in param:
                     if self._inspect_it(item):
@@ -216,13 +216,16 @@ class B(object):
                 .format(self.n, self.cores))
         # go through args and kwargs input arguments and make lists of it if
         # need be
-        for p, param in enumerate(params):
-            for idx, item in enumerate(param):
+        #dochanges = []
+        for p, param in [(0, enumerate(params[0])),
+                         (1, params[1].items())]:
+            for idx, item in param:
                 if self._inspect_it(item):
                     # this input is inspect-compatible
                     if len(item) != self.n:
                         # but its length is not the one we want to iterate on
                         # wrap it into a fake 1-item list
+                        #dochanges.append((p, idx))
                         params[p][idx] = [item]
                 else:
                     # item not inspect-compatible
@@ -230,8 +233,18 @@ class B(object):
                     if isinstance(item, types.GeneratorType):
                         # can't pickle generators, so gotta force it into
                         # tuple
+                        #dochanges.append((p, idx, None))
                         item = tuple(item)
+                    #else:
+                    #    dochanges.append((p, idx))
                     params[p][idx] = [item]
+        #for changes in dochanges:
+        #    dotuple = False
+        #    if len(changes) == 3:
+        #        dotuple = True
+        #    p, idx = changes[:2]
+        #    params[p][idx] = [tuple(params[p][idx])] if dotuple\
+        #        else [params[p][idx]]
         # make the single parameter list for the pool
         allparams = []
         for j in range(self.n):
