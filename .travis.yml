@@ -19,7 +19,7 @@ install:
     - conda update -q conda
     - conda info -a
 
-    - conda create --yes -n test python=$PYTHON_VERSION matplotlib numpy setuptools nose
+    - conda create --yes -n test python=$PYTHON_VERSION matplotlib numpy pandas setuptools nose
     - source activate test
     - pip install coveralls
 
@@ -29,7 +29,7 @@ install:
 #    - sleep 3 # give xvfb some time to start
 
 script:
-    - nosetests binge --with-coverage --cover-package=binge
+    - nosetests --exe binge --with-coverage --cover-package=binge
 
 after_success:
     - coveralls
