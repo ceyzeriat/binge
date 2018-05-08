@@ -1,6 +1,6 @@
 [run]
 source = 
-   joystick
+   binge
 omit =
    */test/*
    */*/test/*

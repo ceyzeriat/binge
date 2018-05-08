@@ -1,4 +1,4 @@
-.. joystick
+.. binge
 
 .. image:: https://travis-ci.org/ceyzeriat/binge.svg?branch=master
     :target: https://travis-ci.org/ceyzeriat/binge

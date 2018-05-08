@@ -264,7 +264,7 @@ class B(object):
                 return concatenate(res, axis=0)
             elif self.typout == 'nda':
                 from numpy import concatenate
-                return concatenate(([item] for item in res), axis=0)
+                return concatenate([[item] for item in res], axis=0)
             else:
                 raise Exception("Unkonwn typout '{}'".format(self.typout))
         except:
