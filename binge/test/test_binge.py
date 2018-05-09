@@ -28,9 +28,18 @@
 import numpy as np
 import time
 import pandas as pd
+from nose.tools import raises
 
 
 from ..binge import B
+from ..binge import _wrap_fct
+
+
+def test_wrap_fct():
+    a = 1
+    b = 1
+    res = _wrap_fct([_dummy_wrap, 1, True, 2] + [a] + [("b",b)])
+    assert res == a+b
 
 
 def _dummy(a):
@@ -38,6 +47,10 @@ def _dummy(a):
 
 
 def _dummy2(a, b=1):
+    return a + b
+
+
+def _dummy_wrap(a, b, _pinfo):
     return a + b
 
 
@@ -170,3 +183,75 @@ def test_output_pd():
     col = 'col'
     res = B(_dummy_pd, typout='df')(l, col=col)
     assert l == res[col].values.tolist()
+
+
+@raises(Exception)
+def test_not_callable():
+    B(23)(range(2))
+
+
+@raises(ValueError)
+def test_bad_typin():
+    B(_dummy, typin=12)(range(2))
+
+
+@raises(ValueError)
+def test_bad_typin():
+    B(_dummy, typin='blah')(range(2))
+
+
+def test_bad_typout():
+    l = [1,2]
+    res = B(_dummy, typout='blah')(l)
+    assert l == res
+
+
+def test_error_typout_processing():
+    l = [1,2]
+    res = B(_dummy, typout='df')(l)
+    assert l == res
+
+
+def test_repr_str():
+    Bf = B(_dummy)
+    assert str(Bf) == repr(Bf)
+
+
+def test_verbose():
+    Bf = B(_dummy, verbose=True)(range(2))
+
+
+def test_pinfo():
+    l = [1,2,3]
+    res = B(_dummy_wrap, fwp_pinfo)(l)
+    assert l == res
+
+
+def _dum_wrap(_pinfo):
+    time.sleep(0.5)
+    return _pinfo
+
+
+def test_pinfo():
+    res = B(_dum_wrap, fwd_pinfo=True, n=4, cores=4)()
+    assert sorted([i[0] for i in res]) == [0,1,2,3]
+    assert sorted([i[1] for i in res]) == [1,1,1,1]
+
+
+def _dum_n(a, b):
+    return sum(a)*b
+
+
+def test_nulti_n():
+    a = [1,2]
+    b = [0,1,2,3]
+    res = B(_dum_n)(a, b)
+    assert res == [sum(a)*i for i in b]
+
+
+def test_nulti_n():
+    a = [0,1,2,3]
+    b = [1,2]
+    res = B(_dum_n, n=2)(a, b)
+    assert res == [sum(a)*i for i in b]
+

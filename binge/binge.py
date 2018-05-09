@@ -27,7 +27,7 @@
 
 import multiprocessing
 from collections import Iterable
-import sys
+import traceback
 import types
 
 
@@ -52,6 +52,10 @@ def _wrap_fct(params):
         d = multiprocessing.Process()._identity + (None,)
         params += [('_pinfo', [d[0]%ncores, d[1]])]
     return fct(*params[:largs], **dict(params[largs:]))
+
+
+_TYPIN = set(['nda', 'str', 'gen'])
+_TYPOUT = set(['df', 'nd1', 'nda'])
 
 
 class B(object):
@@ -127,7 +131,11 @@ class B(object):
         elif isinstance(typin, (tuple, list)):
             self.typin = set([str(typ).lower() for typ in typin])
         else:
-            raise Exception("Typin '{}' not understood".format(typin))
+            raise ValueError("Typin '{}' not understood".format(typin))
+        if self.typin is not None:
+            for typ in self.typin:
+                if typ not in _TYPIN:
+                    raise ValueError("Typin '{}' not understood".format(typ))
         self._split_str = False if self.typin is None else\
             ('str' in self.typin)
         self._split_ndarray = False if self.typin is None else\
@@ -281,8 +289,9 @@ class B(object):
             else:
                 raise Exception("Unkonwn typout '{}'".format(self.typout))
         except:
+            bug = traceback.format_exc()
             print("Some error happened trying to post-process the output "\
                   "according to typout '{}':\n{}\n"\
                   "Returned the raw output instead".format(
-                    self.typout, sys.exc_info()[0]))
+                    self.typout, bug))
         return res
